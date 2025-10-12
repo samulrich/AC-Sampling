@@ -19,7 +19,6 @@ export default defineConfig(({ mode }) => {
         },
         plugins: [
             react(),
-            // 3. ADD PWA PLUGIN CONFIGURATION
             VitePWA({
                 registerType: 'autoUpdate',
                 includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
@@ -43,12 +42,10 @@ export default defineConfig(({ mode }) => {
                 },
             }),
         ],
-        // Your existing environment variable loading and defining
         define: {
             'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
             'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
         },
-        // Your existing custom path alias
         resolve: {
             alias: {
                 '@': path.resolve(__dirname, '.'),
