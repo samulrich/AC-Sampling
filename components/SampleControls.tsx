@@ -1,12 +1,13 @@
 import React from 'react';
 import { Sample, SampleType } from '../types';
-import { CopyIcon, BeakerIcon, ScissorsIcon, BlankIcon, MergeIcon, TrashIcon, NoSymbolIcon } from './icons';
+import { CopyIcon, BeakerIcon, ScissorsIcon, BlankIcon, MergeIcon, TrashIcon, NoSymbolIcon, GridIcon } from './icons';
 
 interface SampleControlsProps {
   sampleInterval: number;
   setSampleInterval: (interval: number) => void;
   onGenerate: () => void;
   onAddDuplicate: () => void;
+  onToggleMultiElement: () => void;
   onOpenStandardModal: () => void;
   onOpenBlankModal: () => void;
   onOpenNotSampledModal: () => void;
@@ -16,6 +17,9 @@ interface SampleControlsProps {
   selectedSamples: Sample[];
   isHoleSelected: boolean;
   isHoleInfoComplete: boolean;
+  hasPrimarySamples: boolean;
+  onApplyQCRules: () => void;
+  isAutoQcEnabled: boolean;
 }
 
 const SampleControls: React.FC<SampleControlsProps> = ({
@@ -23,6 +27,7 @@ const SampleControls: React.FC<SampleControlsProps> = ({
   setSampleInterval,
   onGenerate,
   onAddDuplicate,
+  onToggleMultiElement,
   onOpenStandardModal,
   onOpenBlankModal,
   onOpenNotSampledModal,
@@ -32,12 +37,17 @@ const SampleControls: React.FC<SampleControlsProps> = ({
   selectedSamples,
   isHoleSelected,
   isHoleInfoComplete,
+  hasPrimarySamples,
+  onApplyQCRules,
+  isAutoQcEnabled,
 }) => {
-  const canDuplicate = selectedSamples.length === 1 && selectedSamples[0].type === SampleType.Primary;
-  const canInsert = selectedSamples.length === 1;
+  const canAddQc = selectedSamples.length === 1 && selectedSamples[0].type === SampleType.Primary;
   const canSplit = selectedSamples.length > 0 && selectedSamples.every(s => s.type === SampleType.Primary && (s.to - s.from) > 1);
   const canMerge = selectedSamples.length > 1 && selectedSamples.every(s => s.type === SampleType.Primary && (s.to - s.from) === 1);
   const canDelete = selectedSamples.length > 0 && selectedSamples.every(s => s.type !== SampleType.Primary);
+  
+  const canToggleMultiElement = selectedSamples.length > 0 && selectedSamples.every(s => s.type === SampleType.Primary || s.type === SampleType.Duplicate);
+  const isMultiElementSelected = canToggleMultiElement && selectedSamples.every(s => s.assayType === 'ME');
 
   const actionButtonClasses = "flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all";
   const disabledButtonClasses = "bg-slate-400 cursor-not-allowed";
@@ -74,11 +84,25 @@ const SampleControls: React.FC<SampleControlsProps> = ({
           </button>
         </div>
       </div>
+
+      <div>
+        <h2 className="text-lg font-bold text-slate-700 mb-4">Automated QC</h2>
+        <div className="space-y-3">
+           <button
+            onClick={onApplyQCRules}
+            disabled={!hasPrimarySamples || !isAutoQcEnabled}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${hasPrimarySamples && isAutoQcEnabled ? 'bg-teal-600 hover:bg-teal-700 focus:ring-teal-500' : disabledButtonClasses}`}
+            title={!isAutoQcEnabled ? 'Enable Auto QC in the Admin panel to use this feature' : ''}
+          >
+            Apply Auto QC Rules
+          </button>
+        </div>
+      </div>
       
       <div>
-        <h2 className="text-lg font-bold text-slate-700 mb-4">Actions</h2>
+        <h2 className="text-lg font-bold text-slate-700 mb-4">Manual Actions</h2>
         <div className="space-y-3">
-          <p className="text-xs text-center text-slate-500">Select samples to enable actions, or add a non-sampled interval.</p>
+          <p className="text-xs text-center text-slate-500">Select samples to enable actions, or use the right-click menu in the graphical log.</p>
            <button
             onClick={onOpenNotSampledModal}
             disabled={!isHoleSelected}
@@ -88,22 +112,29 @@ const SampleControls: React.FC<SampleControlsProps> = ({
           </button>
           <button
             onClick={onAddDuplicate}
-            disabled={!canDuplicate}
-            className={`${actionButtonClasses} ${canDuplicate ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500' : disabledButtonClasses}`}
+            disabled={!canAddQc}
+            className={`${actionButtonClasses} ${canAddQc ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500' : disabledButtonClasses}`}
           >
             <CopyIcon /> Add Duplicate
           </button>
           <button
+            onClick={onToggleMultiElement}
+            disabled={!canToggleMultiElement}
+            className={`${actionButtonClasses} ${canToggleMultiElement ? (isMultiElementSelected ? 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-500' : 'bg-purple-600 hover:bg-purple-700 focus:ring-purple-500') : disabledButtonClasses}`}
+          >
+            <GridIcon /> {isMultiElementSelected ? 'Set Assay to Au' : 'Set Assay to ME'}
+          </button>
+          <button
             onClick={onOpenStandardModal}
-            disabled={!canInsert}
-            className={`${actionButtonClasses} ${canInsert ? 'bg-yellow-500 hover:bg-yellow-600 focus:ring-yellow-500' : disabledButtonClasses}`}
+            disabled={!canAddQc}
+            className={`${actionButtonClasses} ${canAddQc ? 'bg-yellow-500 hover:bg-yellow-600 focus:ring-yellow-500' : disabledButtonClasses}`}
           >
             <BeakerIcon /> Insert Standard
           </button>
           <button
             onClick={onOpenBlankModal}
-            disabled={!canInsert}
-            className={`${actionButtonClasses} ${canInsert ? 'bg-slate-500 hover:bg-slate-600 focus:ring-slate-500' : disabledButtonClasses}`}
+            disabled={!canAddQc}
+            className={`${actionButtonClasses} ${canAddQc ? 'bg-slate-500 hover:bg-slate-600 focus:ring-slate-500' : disabledButtonClasses}`}
           >
             <BlankIcon /> Insert Blank
           </button>

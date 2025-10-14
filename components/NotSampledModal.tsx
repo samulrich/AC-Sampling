@@ -4,19 +4,27 @@ import Modal from './Modal';
 interface NotSampledModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (from: number, to: number) => void;
+    onSubmit: (from: number, to: number, comment: string) => void;
     maxDepth: number;
 }
+
+const NOT_SAMPLED_REASONS = [
+    "Not sampled",
+    "Sample not recovered",
+    "Void/Stope",
+];
 
 const NotSampledModal: React.FC<NotSampledModalProps> = ({ isOpen, onClose, onSubmit, maxDepth }) => {
     const [from, setFrom] = useState('');
     const [to, setTo] = useState('');
+    const [comment, setComment] = useState(NOT_SAMPLED_REASONS[0]);
     const [error, setError] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             setFrom('');
             setTo('');
+            setComment(NOT_SAMPLED_REASONS[0]);
             setError('');
         }
     }, [isOpen]);
@@ -44,7 +52,7 @@ const NotSampledModal: React.FC<NotSampledModalProps> = ({ isOpen, onClose, onSu
             return;
         }
 
-        onSubmit(fromNum, toNum);
+        onSubmit(fromNum, toNum, comment);
         onClose();
     };
 
@@ -83,6 +91,20 @@ const NotSampledModal: React.FC<NotSampledModalProps> = ({ isOpen, onClose, onSu
                             required
                         />
                     </div>
+                </div>
+                 <div>
+                    <label htmlFor="ns-reason" className="block text-sm font-medium text-slate-700">Reason</label>
+                    <select
+                        id="ns-reason"
+                        value={comment}
+                        onChange={e => setComment(e.target.value)}
+                        className={`${baseInputClasses} ${validClasses}`}
+                        required
+                    >
+                        {NOT_SAMPLED_REASONS.map(reason => (
+                            <option key={reason} value={reason}>{reason}</option>
+                        ))}
+                    </select>
                 </div>
 
                 {error && 

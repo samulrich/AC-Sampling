@@ -46,10 +46,12 @@ const SampleTable: React.FC<SampleTableProps> = ({ samples, selectedSampleUuids,
               <th scope="col" className="px-3 py-3">To (m)</th>
               <th scope="col" className="px-3 py-3">Length (m)</th>
               <th scope="col" className="px-3 py-3">Category</th>
+              <th scope="col" className="px-3 py-3">Assay</th>
               <th scope="col" className="px-3 py-3">PSample ID</th>
               <th scope="col" className="px-3 py-3">Sample Type</th>
               <th scope="col" className="px-3 py-3">Sample Method</th>
               <th scope="col" className="px-3 py-3">Std/Blk ID</th>
+              <th scope="col" className="px-3 py-3">Sample Comments</th>
             </tr>
           </thead>
           <tbody>
@@ -85,15 +87,17 @@ const SampleTable: React.FC<SampleTableProps> = ({ samples, selectedSampleUuids,
                     {sample.type}
                   </span>
                 </td>
+                <td className="px-3 py-4">{sample.assayType || 'Au'}</td>
                 <td className="px-3 py-4">{sample.pSampleId || '-'}</td>
                 <td className="px-3 py-4">{sample.sampleType || '-'}</td>
                 <td className="px-3 py-4">{sample.sampleMethod || '-'}</td>
                 <td className="px-3 py-4">{sample.materialName || '-'}</td>
+                <td className="px-3 py-4">{sample.comment || '-'}</td>
               </tr>
             ))}
              {samples.length === 0 && (
               <tr>
-                <td colSpan={10} className="text-center py-8 text-slate-500">
+                <td colSpan={12} className="text-center py-8 text-slate-500">
                   No samples generated. Use the controls to create samples.
                 </td>
               </tr>
