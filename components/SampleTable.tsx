@@ -22,7 +22,7 @@ const SampleTable: React.FC<SampleTableProps> = ({ samples, selectedSampleUuids,
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-md h-full flex flex-col">
-      <h2 className="text-lg font-bold text-slate-700 mb-4">Sample Log Table</h2>
+      <h2 className="text-lg font-bold text-slate-700 mb-4">Samples Table</h2>
       <div className="flex-grow overflow-y-auto">
         <table className="w-full text-sm text-left text-slate-500">
           <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0 z-10">

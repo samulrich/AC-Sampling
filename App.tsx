@@ -13,6 +13,7 @@ import CombinedLogTable from './components/CombinedLogTable';
 import DeleteModal from './components/DeleteModal';
 import AlertModal from './components/AlertModal';
 import SelectionPopover from './components/SelectionPopover';
+import InstructionsPanel from './components/InstructionsPanel';
 
 const incrementAlphanumeric = (id: string): string => {
   if (!id) return '1';
@@ -882,52 +883,50 @@ function App() {
                         <TabButton tab="condition" label="Condition & Recovery" />
                     </nav>
                 </div>
-                <div className="flex-grow min-h-0 pt-6">
-                    {mainViewTab === 'samples' && (
-                         <div className="grid grid-cols-1 xl:grid-cols-[auto,minmax(0,1.5fr)] gap-8 h-full">
-                            <DrillHoleLog
-                                displayMode="samples"
-                                samples={activeHole?.samples || []}
-                                holeDepth={activeHole?.holeDepth || 0}
-                                conditionLog={activeHole?.conditionLog || []}
-                                recoveryLog={activeHole?.recoveryLog || []}
-                                selectedSampleUuids={selectedSampleUuids}
-                                onToggleSelection={handleToggleSelection}
-                                onAddDuplicate={handleAddDuplicate}
-                                onInsertStandard={handleInsertStandard}
-                                onInsertBlank={handleInsertBlank}
-                                onSplit={handleSplitSample}
-                                onDelete={handleDeleteSingleSample}
-                                onUpdateIntervalLog={handleUpdateIntervalLog}
-                                onToggleMultiElement={handleToggleMultiElement}
-                                onAssignMaterial={handleAssignMaterial}
-                            />
-                            <SampleTable samples={activeHole?.samples || []} selectedSampleUuids={selectedSampleUuids} onToggleSelection={handleToggleSelection} onSelectAll={handleSelectAll} />
-                        </div>
-                    )}
-                    {mainViewTab === 'condition' && (
-                        <div className="grid grid-cols-1 xl:grid-cols-[auto,minmax(0,1.5fr)] gap-8 h-full">
-                            <DrillHoleLog
-                                displayMode="condition"
-                                samples={activeHole?.samples || []}
-                                holeDepth={activeHole?.holeDepth || 0}
-                                conditionLog={activeHole?.conditionLog || []}
-                                recoveryLog={activeHole?.recoveryLog || []}
-                                selectedSampleUuids={selectedSampleUuids}
-                                onToggleSelection={handleToggleSelection}
-                                onAddDuplicate={handleAddDuplicate}
-                                onInsertStandard={handleInsertStandard}
-                                onInsertBlank={handleInsertBlank}
-                                onSplit={handleSplitSample}
-                                onDelete={handleDeleteSingleSample}
-                                onUpdateIntervalLog={handleUpdateIntervalLog}
-                                onToggleMultiElement={handleToggleMultiElement}
-                                onAssignMaterial={handleAssignMaterial}
-                            />
-                             <CombinedLogTable activeHole={activeHole} projects={projects} samplers={samplers} combinedIntervals={combinedLogForActiveHole} />
-                        </div>
-                    )}
-                </div>
+                {mainViewTab === 'samples' && (
+                     <div className="grid grid-cols-1 xl:grid-cols-[auto,minmax(0,1.5fr)] gap-8 flex-grow min-h-0 grid-rows-[minmax(0,1fr)] pt-6">
+                        <DrillHoleLog
+                            displayMode="samples"
+                            samples={activeHole?.samples || []}
+                            holeDepth={activeHole?.holeDepth || 0}
+                            conditionLog={activeHole?.conditionLog || []}
+                            recoveryLog={activeHole?.recoveryLog || []}
+                            selectedSampleUuids={selectedSampleUuids}
+                            onToggleSelection={handleToggleSelection}
+                            onAddDuplicate={handleAddDuplicate}
+                            onInsertStandard={handleInsertStandard}
+                            onInsertBlank={handleInsertBlank}
+                            onSplit={handleSplitSample}
+                            onDelete={handleDeleteSingleSample}
+                            onUpdateIntervalLog={handleUpdateIntervalLog}
+                            onToggleMultiElement={handleToggleMultiElement}
+                            onAssignMaterial={handleAssignMaterial}
+                        />
+                        <SampleTable samples={activeHole?.samples || []} selectedSampleUuids={selectedSampleUuids} onToggleSelection={handleToggleSelection} onSelectAll={handleSelectAll} />
+                    </div>
+                )}
+                {mainViewTab === 'condition' && (
+                    <div className="grid grid-cols-1 xl:grid-cols-[auto,minmax(0,1.5fr)] gap-8 flex-grow min-h-0 grid-rows-[minmax(0,1fr)] pt-6">
+                        <DrillHoleLog
+                            displayMode="condition"
+                            samples={activeHole?.samples || []}
+                            holeDepth={activeHole?.holeDepth || 0}
+                            conditionLog={activeHole?.conditionLog || []}
+                            recoveryLog={activeHole?.recoveryLog || []}
+                            selectedSampleUuids={selectedSampleUuids}
+                            onToggleSelection={handleToggleSelection}
+                            onAddDuplicate={handleAddDuplicate}
+                            onInsertStandard={handleInsertStandard}
+                            onInsertBlank={handleInsertBlank}
+                            onSplit={handleSplitSample}
+                            onDelete={handleDeleteSingleSample}
+                            onUpdateIntervalLog={handleUpdateIntervalLog}
+                            onToggleMultiElement={handleToggleMultiElement}
+                            onAssignMaterial={handleAssignMaterial}
+                        />
+                         <CombinedLogTable activeHole={activeHole} projects={projects} samplers={samplers} combinedIntervals={combinedLogForActiveHole} />
+                    </div>
+                )}
           </div>
         </main>
       )}
