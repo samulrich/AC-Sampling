@@ -74,6 +74,7 @@ export interface DrillHole {
   sampledDate: string;
   conditionLog: LogInterval[];
   recoveryLog: LogInterval[];
+  contaminatedMeters: number[];
   autoQcApplied?: boolean;
 }
 
@@ -82,6 +83,7 @@ export interface CombinedInterval {
   to: number;
   conditionCode: ConditionCode | string;
   recoveryCode: RecoveryCode | string;
+  isContaminated: boolean;
 }
 
 export enum QCRate {

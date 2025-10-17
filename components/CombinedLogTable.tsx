@@ -22,6 +22,7 @@ const CombinedLogTable: React.FC<CombinedLogTableProps> = ({ activeHole, project
                             <th scope="col" className="px-3 py-3">To (m)</th>
                             <th scope="col" className="px-3 py-3">Condition</th>
                             <th scope="col" className="px-3 py-3">Recovery</th>
+                            <th scope="col" className="px-3 py-3">Contamination</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -31,11 +32,12 @@ const CombinedLogTable: React.FC<CombinedLogTableProps> = ({ activeHole, project
                                 <td className="px-3 py-2">{interval.to.toFixed(2)}</td>
                                 <td className="px-3 py-2 font-medium">{interval.conditionCode}</td>
                                 <td className="px-3 py-2 font-medium">{interval.recoveryCode}</td>
+                                <td className="px-3 py-2 font-medium">{interval.isContaminated ? 'Yes' : 'No'}</td>
                             </tr>
                         ))}
                         {combinedIntervals.length === 0 && (
                             <tr>
-                                <td colSpan={4} className="text-center py-8 text-slate-500">
+                                <td colSpan={5} className="text-center py-8 text-slate-500">
                                     No Condition or Recovery data logged.
                                 </td>
                             </tr>

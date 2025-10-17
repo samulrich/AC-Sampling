@@ -1,23 +1,28 @@
 import React, { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { Sample, SampleType, LogInterval, ConditionCode, RecoveryCode } from '../types';
-import { CopyIcon, BeakerIcon, ScissorsIcon, ZoomInIcon, ZoomOutIcon, BlankIcon, TrashIcon, GridIcon } from './icons';
+import { CopyIcon, BeakerIcon, ScissorsIcon, ZoomInIcon, ZoomOutIcon, BlankIcon, TrashIcon, GridIcon, MergeIcon } from './icons';
 
 interface DrillHoleLogProps {
   samples: Sample[];
   holeDepth: number;
   conditionLog: LogInterval[];
   recoveryLog: LogInterval[];
+  contaminatedMeters: number[];
   selectedSampleUuids: string[];
   onToggleSelection: (uuid: string) => void;
   onAddDuplicate: (sample: Sample) => void;
   onInsertStandard: (sample: Sample, targetRect: DOMRect) => void;
   onInsertBlank: (sample: Sample, targetRect: DOMRect) => void;
   onSplit: (sample: Sample) => void;
+  onMerge: () => void;
   onDelete: (sample: Sample) => void;
   onUpdateIntervalLog: (logType: 'condition' | 'recovery', from: number, to: number, code: ConditionCode | RecoveryCode) => void;
   onToggleMultiElement: (sample: Sample) => void;
   onAssignMaterial: (sample: Sample, targetRect: DOMRect) => void;
+  onClearSamples: () => void;
   displayMode: 'samples' | 'condition';
+  onClearIntervalLog: (logType: 'condition' | 'recovery') => void;
+  onToggleContamination: (from: number, to: number) => void;
 }
 
 const getSampleColor = (sample: Sample) => {
@@ -50,13 +55,13 @@ const RECOVERY_OPTIONS: { [key in RecoveryCode]: { label: string; color: string;
     [RecoveryCode.NoSample]: { label: 'No Sample', color: 'bg-slate-400', textColor: 'text-white' },
 };
 
-interface SampleLogProps extends Omit<DrillHoleLogProps, 'displayMode' | 'onUpdateIntervalLog' | 'conditionLog' | 'recoveryLog'> {
+interface SampleLogProps extends Omit<DrillHoleLogProps, 'displayMode' | 'onUpdateIntervalLog' | 'conditionLog' | 'recoveryLog' | 'onClearSamples' | 'contaminatedMeters' | 'onClearIntervalLog' | 'onToggleContamination'> {
   zoom: number;
 }
 
 
 const DrillHoleLog: React.FC<DrillHoleLogProps> = (props) => {
-  const { displayMode } = props;
+  const { displayMode, onClearSamples, samples, onClearIntervalLog, conditionLog, recoveryLog, contaminatedMeters } = props;
   const [zoom, setZoom] = useState(1);
   const [intervalLogView, setIntervalLogView] = useState<'condition' | 'recovery'>('condition');
 
@@ -71,11 +76,39 @@ const DrillHoleLog: React.FC<DrillHoleLogProps> = (props) => {
     </button>
   );
 
+  const isCurrentIntervalLogEmpty = useMemo(() => {
+    if (intervalLogView === 'condition') return conditionLog.length === 0;
+    if (intervalLogView === 'recovery') return recoveryLog.length === 0 && contaminatedMeters.length === 0;
+    return true;
+  }, [intervalLogView, conditionLog, recoveryLog, contaminatedMeters]);
+
   return (
     <div className="bg-white p-4 rounded-lg shadow-md flex flex-col h-full">
       <div style={{ width: '10cm' }}>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-slate-700">Graphical Log</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-slate-700">Graphical Log</h2>
+            {displayMode === 'samples' && (
+              <button
+                onClick={onClearSamples}
+                disabled={(samples || []).length === 0}
+                className="p-1.5 rounded-full text-slate-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                title="Clear all samples from this hole"
+              >
+                <TrashIcon className="w-5 h-5" />
+              </button>
+            )}
+            {displayMode === 'condition' && (
+              <button
+                onClick={() => onClearIntervalLog(intervalLogView)}
+                disabled={isCurrentIntervalLogEmpty}
+                className="p-1.5 rounded-full text-slate-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                title={`Clear ${intervalLogView} log`}
+              >
+                <TrashIcon className="w-5 h-5" />
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-4">
               {displayMode === 'samples' && (
                   <div className="flex items-center gap-2">
@@ -103,13 +136,14 @@ const DrillHoleLog: React.FC<DrillHoleLogProps> = (props) => {
         onInsertStandard={props.onInsertStandard}
         onInsertBlank={props.onInsertBlank}
         onSplit={props.onSplit}
+        onMerge={props.onMerge}
         onDelete={props.onDelete}
         onToggleMultiElement={props.onToggleMultiElement}
         onAssignMaterial={props.onAssignMaterial}
         zoom={zoom} 
       />}
       {displayMode === 'condition' && intervalLogView === 'condition' && <IntervalLog key="condition" holeDepth={props.holeDepth} logData={props.conditionLog} options={CONDITION_OPTIONS} logType="condition" onUpdate={props.onUpdateIntervalLog} />}
-      {displayMode === 'condition' && intervalLogView === 'recovery' && <IntervalLog key="recovery" holeDepth={props.holeDepth} logData={props.recoveryLog} options={RECOVERY_OPTIONS} logType="recovery" onUpdate={props.onUpdateIntervalLog}/>}
+      {displayMode === 'condition' && intervalLogView === 'recovery' && <IntervalLog key="recovery" holeDepth={props.holeDepth} logData={props.recoveryLog} options={RECOVERY_OPTIONS} logType="recovery" onUpdate={props.onUpdateIntervalLog} contaminatedMeters={props.contaminatedMeters} onToggleContamination={props.onToggleContamination}/>}
     </div>
   );
 };
@@ -124,6 +158,7 @@ const SampleLog: React.FC<SampleLogProps> = ({
   onInsertStandard,
   onInsertBlank,
   onSplit,
+  onMerge,
   onDelete,
   onToggleMultiElement,
   onAssignMaterial,
@@ -131,6 +166,8 @@ const SampleLog: React.FC<SampleLogProps> = ({
 }) => {
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, sample: Sample, targetRect: DOMRect } | null>(null);
   const baseScale = holeDepth > 80 ? holeDepth / 80 : 1;
+  
+  const selectedSamples = useMemo(() => samples.filter(s => selectedSampleUuids.includes(s.uuid)), [samples, selectedSampleUuids]);
 
   useEffect(() => {
     const handleClickOutside = () => setContextMenu(null);
@@ -245,9 +282,10 @@ const SampleLog: React.FC<SampleLogProps> = ({
           x={contextMenu.x}
           y={contextMenu.y}
           sample={contextMenu.sample}
+          selectedSamples={selectedSamples}
           targetRect={contextMenu.targetRect}
           onClose={() => setContextMenu(null)}
-          actions={{ onAddDuplicate, onInsertStandard, onInsertBlank, onSplit, onDelete, onToggleMultiElement }}
+          actions={{ onAddDuplicate, onInsertStandard, onInsertBlank, onSplit, onMerge, onDelete, onToggleMultiElement }}
         />
       )}
     </div>
@@ -267,7 +305,7 @@ const SampleBlock = ({ sample, selectedSampleUuids, holeDepth, zoom }) => {
     );
 };
 
-const ContextMenu = ({ x, y, sample, targetRect, onClose, actions }) => {
+const ContextMenu = ({ x, y, sample, selectedSamples, targetRect, onClose, actions }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({
     position: 'fixed',
@@ -303,6 +341,13 @@ const ContextMenu = ({ x, y, sample, targetRect, onClose, actions }) => {
   
   const canSplit = sample.type === SampleType.Primary && (sample.to - sample.from) > 1;
   const isAuAssay = sample.assayType === 'Au' || !sample.assayType;
+  
+  const sortedSelected = useMemo(() => [...selectedSamples].sort((a, b) => a.from - b.from), [selectedSamples]);
+  const canMerge = useMemo(() => 
+      sortedSelected.length > 1 &&
+      sortedSelected.every(s => s.type === SampleType.Primary && (s.to - s.from) === 1) &&
+      sortedSelected.every((s, i, arr) => i === 0 || s.from === arr[i-1].to)
+  , [sortedSelected]);
 
   const menuItemClass = "flex items-center gap-3 w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-md disabled:opacity-50 disabled:bg-transparent disabled:cursor-not-allowed";
   const iconClass = "w-4 h-4 text-slate-500";
@@ -318,6 +363,7 @@ const ContextMenu = ({ x, y, sample, targetRect, onClose, actions }) => {
               <button onClick={() => actions.onInsertBlank(sample, targetRect)} className={menuItemClass}><BlankIcon className={iconClass}/> Insert Blank</button>
               <button onClick={() => actions.onToggleMultiElement(sample)} className={menuItemClass}><GridIcon className={iconClass}/> Set Assay to {isAuAssay ? 'ME' : 'Au'}</button>
               <button onClick={() => actions.onSplit(sample)} disabled={!canSplit} className={menuItemClass}><ScissorsIcon className={iconClass}/> Split to 1m</button>
+              <button onClick={actions.onMerge} disabled={!canMerge} className={menuItemClass}><MergeIcon className={iconClass}/> Merge 1m Samples</button>
             </>
         )}
          {(sample.type !== SampleType.Primary) && (
@@ -344,11 +390,22 @@ interface IntervalLogProps {
   options: IntervalOptions;
   logType: 'condition' | 'recovery';
   onUpdate: (logType: 'condition' | 'recovery', from: number, to: number, code: ConditionCode | RecoveryCode) => void;
+  contaminatedMeters?: number[];
+  onToggleContamination?: (from: number, to: number) => void;
 }
 
-const IntervalLog: React.FC<IntervalLogProps> = ({ holeDepth, logData, options, logType, onUpdate }) => {
+const IntervalLog: React.FC<IntervalLogProps> = ({ holeDepth, logData, options, logType, onUpdate, contaminatedMeters = [], onToggleContamination }) => {
     const [selection, setSelection] = useState<{ start: number | null, end: number | null }>({ start: null, end: null });
     const [hoveredMeter, setHoveredMeter] = useState<number | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
+
+    useEffect(() => {
+        const handleClickOutside = () => setContextMenu(null);
+        if (contextMenu) {
+            window.addEventListener('click', handleClickOutside);
+        }
+        return () => window.removeEventListener('click', handleClickOutside);
+    }, [contextMenu]);
 
     const logMap = useMemo(() => {
         const map = new Map<number, string>();
@@ -388,6 +445,18 @@ const IntervalLog: React.FC<IntervalLogProps> = ({ holeDepth, logData, options, 
         setSelection({ start: null, end: null });
         setHoveredMeter(null); // Reset hover to hide toolbar after applying
     };
+    
+    const handleContextMenu = (e: React.MouseEvent, meter: number) => {
+        e.preventDefault();
+        if (logType !== 'recovery' || !onToggleContamination) return;
+
+        // If the right-clicked meter is not part of the current selection,
+        // create a new selection of just this meter before showing the menu.
+        if (!isMeterSelected(meter)) {
+            setSelection({ start: meter, end: meter });
+        }
+        setContextMenu({ x: e.pageX, y: e.pageY });
+    };
 
     const isMeterSelected = useCallback((meter: number) => {
         if (selection.start === null) return false;
@@ -404,19 +473,19 @@ const IntervalLog: React.FC<IntervalLogProps> = ({ holeDepth, logData, options, 
 
     const HoverToolbar = ({ onApply }: { onApply: (code: string) => void }) => (
         <div className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 z-20 bg-white p-1.5 rounded-lg shadow-xl flex items-center gap-1.5 border border-slate-200">
-            {/* FIX: Switched from Object.entries to Object.keys to ensure proper type inference for 'option', resolving errors when accessing properties like 'label' and 'color'. */}
-            {Object.keys(options).map((code) => {
-                const option = options[code];
-                return (
-                    <button 
-                        key={code} 
-                        title={option.label} 
-                        onClick={(e) => { e.stopPropagation(); onApply(code); }}
-                        className={`w-8 h-8 rounded-md text-sm font-bold flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 ${option.color} ${option.textColor} focus:ring-sky-500`}>
-                        {code}
-                    </button>
-                );
-            })}
+            {/* FIX: Use Object.entries and cast option to ensure correct typing. */}
+            {Object.entries(options).map(([code, option]) => {
+                    const opt = option as IntervalOption;
+                    return (
+                        <button 
+                            key={code} 
+                            title={opt.label} 
+                            onClick={(e) => { e.stopPropagation(); onApply(code); }}
+                            className={`w-8 h-8 rounded-md text-sm font-bold flex items-center justify-center transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 ${opt.color} ${opt.textColor} focus:ring-sky-500`}>
+                            {code}
+                        </button>
+                    );
+                })}
         </div>
     );
 
@@ -424,16 +493,16 @@ const IntervalLog: React.FC<IntervalLogProps> = ({ holeDepth, logData, options, 
         <div className="flex-grow flex flex-col relative overflow-hidden">
             <div className="flex justify-between items-center mb-2">
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    {/* FIX: Switched from Object.entries to Object.keys to ensure proper type inference for 'option', resolving errors when accessing properties like 'label' and 'color'. */}
-                    {Object.keys(options).map((code) => {
-                        const option = options[code];
-                        return (
-                            <div key={code} className="flex items-center gap-1.5">
-                                <div className={`w-3.5 h-3.5 rounded-sm ${option.color}`}></div>
-                                <span className="text-xs font-medium text-slate-600">{code}: {option.label}</span>
-                            </div>
-                        );
-                    })}
+                    {/* FIX: Use Object.entries and cast option to ensure correct typing. */}
+                    {Object.entries(options).map(([code, option]) => {
+                            const opt = option as IntervalOption;
+                            return (
+                                <div key={code} className="flex items-center gap-1.5">
+                                    <div className={`w-3.5 h-3.5 rounded-sm ${opt.color}`}></div>
+                                    <span className="text-xs font-medium text-slate-600">{code}: {opt.label}</span>
+                                </div>
+                            );
+                        })}
                 </div>
             </div>
             <div className="flex-grow relative rounded-md overflow-hidden" style={{ width: '10cm' }}>
@@ -452,6 +521,7 @@ const IntervalLog: React.FC<IntervalLogProps> = ({ holeDepth, logData, options, 
                                 const option = code ? options[code] : undefined;
                                 const meterIsSelected = isMeterSelected(meter);
                                 const showHoverToolbar = selection.start !== null && hoveredMeter === meter && meterIsSelected;
+                                const isContaminated = contaminatedMeters.includes(meter);
                                 
                                 // Determine the background color class based on selection and logged data
                                 const bgClass = meterIsSelected
@@ -464,9 +534,12 @@ const IntervalLog: React.FC<IntervalLogProps> = ({ holeDepth, logData, options, 
                                         <div
                                             onClick={() => handleIntervalClick(meter)}
                                             onMouseEnter={() => setHoveredMeter(meter)}
+                                            onContextMenu={(e) => handleContextMenu(e, meter)}
                                             className={`w-full h-full border-b cursor-pointer transition-all hover:brightness-90 ${bgClass}`}
-                                            title={`${meter} - ${meter + 1}m`}
-                                        />
+                                            title={`${meter} - ${meter + 1}m${isContaminated ? ' (Contaminated)' : ''}`}
+                                        >
+                                           {isContaminated && <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(220, 38, 38, 0.4) 4px, rgba(220, 38, 38, 0.4) 8px)' }} />}
+                                        </div>
                                         {showHoverToolbar && <HoverToolbar onApply={handleApplyCode} />}
                                     </div>
                                 </div>
@@ -476,6 +549,61 @@ const IntervalLog: React.FC<IntervalLogProps> = ({ holeDepth, logData, options, 
                     </div>
                 </div>
             </div>
+            {contextMenu && onToggleContamination && (
+                <ContaminationContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    onClose={() => setContextMenu(null)}
+                    selection={selection}
+                    onToggleContamination={onToggleContamination}
+                />
+            )}
+        </div>
+    );
+};
+
+interface ContaminationContextMenuProps {
+  x: number;
+  y: number;
+  onClose: () => void;
+  selection: { start: number | null; end: number | null };
+  onToggleContamination: (from: number, to: number) => void;
+}
+
+const ContaminationContextMenu: React.FC<ContaminationContextMenuProps> = ({ x, y, onClose, selection, onToggleContamination }) => {
+    const menuRef = useRef<HTMLDivElement>(null);
+    const [style, setStyle] = useState<React.CSSProperties>({
+        position: 'fixed',
+        top: `${y}px`,
+        left: `${x}px`,
+        opacity: 0,
+    });
+
+    useLayoutEffect(() => {
+        if (menuRef.current) {
+            const { innerWidth, innerHeight } = window;
+            const rect = menuRef.current.getBoundingClientRect();
+            let finalX = x;
+            if (x + rect.width > innerWidth) finalX = x - rect.width;
+            let finalY = y;
+            if (y + rect.height > innerHeight) finalY = y - rect.height;
+            setStyle({ position: 'fixed', top: `${finalY}px`, left: `${finalX}px`, opacity: 1, transition: 'opacity 0.1s ease-in-out' });
+        }
+    }, [x, y]);
+
+    const handleToggle = () => {
+        if (selection.start === null) return;
+        const from = selection.end !== null ? Math.min(selection.start, selection.end) : selection.start;
+        const to = selection.end !== null ? Math.max(selection.start, selection.end) + 1 : selection.start + 1;
+        onToggleContamination(from, to);
+        onClose();
+    };
+
+    return (
+        <div ref={menuRef} style={style} className="z-50 bg-white rounded-lg shadow-lg border border-slate-200 p-1.5 min-w-[180px]" onClick={onClose}>
+            <button onClick={handleToggle} className="flex items-center gap-3 w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-md">
+                Toggle Contamination
+            </button>
         </div>
     );
 };

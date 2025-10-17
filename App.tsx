@@ -53,6 +53,7 @@ const createNewHole = (id: string, lastHole?: DrillHole, uuid?: string): DrillHo
         sampledDate: new Date().toISOString().split('T')[0],
         conditionLog: [],
         recoveryLog: [],
+        contaminatedMeters: [],
         autoQcApplied: false,
     };
 };
@@ -60,12 +61,18 @@ const createNewHole = (id: string, lastHole?: DrillHole, uuid?: string): DrillHo
 const calculateCombinedIntervals = (hole: DrillHole): CombinedInterval[] => {
     if (!hole || hole.holeDepth <= 0) return [];
 
-    const { conditionLog, recoveryLog, holeDepth } = hole;
+    const { conditionLog, recoveryLog, holeDepth, contaminatedMeters } = hole;
 
+    // 1. Collect all unique split points from logs and contamination data.
     const points = new Set([0, holeDepth]);
     conditionLog.forEach(i => { points.add(i.from); points.add(i.to); });
     recoveryLog.forEach(i => { points.add(i.from); points.add(i.to); });
+    (contaminatedMeters || []).forEach(m => {
+        points.add(m);
+        points.add(m + 1);
+    });
 
+    // 2. Create a sorted, unique list of points within the hole depth.
     const sortedPoints = Array.from(points).filter(p => p <= holeDepth).sort((a, b) => a - b);
     
     const findCode = (log: LogInterval[], depth: number) => {
@@ -73,30 +80,43 @@ const calculateCombinedIntervals = (hole: DrillHole): CombinedInterval[] => {
         return interval ? interval.code : 'N/A';
     };
 
+    // 3. Create fine-grained initial intervals based on the split points.
     const initialIntervals: CombinedInterval[] = [];
     for (let i = 0; i < sortedPoints.length - 1; i++) {
         const from = sortedPoints[i];
         const to = sortedPoints[i+1];
-        if (from === to) continue;
+        if (from >= to) continue; // Ignore zero or negative length intervals
         
         const midPoint = from + (to - from) / 2;
+        // Check contamination status based on the starting meter of this fine-grained interval.
+        const isContaminated = (contaminatedMeters || []).includes(Math.floor(from));
+
         initialIntervals.push({
             from,
             to,
             conditionCode: findCode(conditionLog, midPoint),
             recoveryCode: findCode(recoveryLog, midPoint),
+            isContaminated,
         });
     }
-    
-    if (initialIntervals.length === 0) return [];
 
+    if (initialIntervals.length === 0) {
+        return [];
+    }
+    
+    // 4. Merge adjacent intervals if all properties (condition, recovery, contamination) are identical.
     const mergedIntervals: CombinedInterval[] = [initialIntervals[0]];
     for (let i = 1; i < initialIntervals.length; i++) {
         const last = mergedIntervals[mergedIntervals.length - 1];
         const current = initialIntervals[i];
-        if (current.conditionCode === last.conditionCode && current.recoveryCode === last.recoveryCode) {
+        
+        if (current.conditionCode === last.conditionCode && 
+            current.recoveryCode === last.recoveryCode && 
+            current.isContaminated === last.isContaminated) {
+            // Extend the last interval
             last.to = current.to;
         } else {
+            // Start a new interval
             mergedIntervals.push(current);
         }
     }
@@ -512,16 +532,6 @@ function App() {
     });
   }, [selectedSamples, modifySamples]);
 
-  const handleDeleteSamples = useCallback(() => {
-    if (selectedSamples.length === 0 || !activeHole) return;
-
-    setAutoQcFlag(activeHole.uuid, false);
-    modifySamples(samples => {
-      const deletableUuids = new Set(selectedSamples.filter(s => s.type !== SampleType.Primary).map(s => s.uuid));
-      return deletableUuids.size > 0 ? samples.filter(s => !deletableUuids.has(s.uuid)) : samples;
-    });
-  }, [selectedSamples, modifySamples, activeHole, setAutoQcFlag]);
-
   const handleDeleteSingleSample = useCallback((sampleToDelete: Sample) => {
     if (!activeHole) return;
     if (sampleToDelete.type === SampleType.Primary) return;
@@ -620,6 +630,52 @@ function App() {
         return newHoles;
     });
   }, [activeHoleUuid]);
+  
+  const handleToggleContamination = useCallback((from: number, to: number) => {
+    setDrillHoles(currentHoles => {
+      const activeHoleIndex = currentHoles.findIndex(h => h.uuid === activeHoleUuid);
+      if (activeHoleIndex === -1) return currentHoles;
+      
+      const holeToUpdate = { ...currentHoles[activeHoleIndex] };
+      const metersToToggle = Array.from({ length: to - from }, (_, i) => from + i);
+      const currentContaminated = new Set(holeToUpdate.contaminatedMeters || []);
+
+      const allSelectedAreContaminated = metersToToggle.every(m => currentContaminated.has(m));
+      
+      if (allSelectedAreContaminated) {
+        metersToToggle.forEach(m => currentContaminated.delete(m));
+      } else {
+        metersToToggle.forEach(m => currentContaminated.add(m));
+      }
+
+      holeToUpdate.contaminatedMeters = Array.from(currentContaminated).sort((a,b) => a - b);
+      
+      const newHoles = [...currentHoles];
+      newHoles[activeHoleIndex] = holeToUpdate;
+      return newHoles;
+    });
+  }, [activeHoleUuid]);
+
+  const handleClearIntervalLog = useCallback((logType: 'condition' | 'recovery') => {
+    setDrillHoles(currentHoles => {
+        const activeHoleIndex = currentHoles.findIndex(h => h.uuid === activeHoleUuid);
+        if (activeHoleIndex === -1) return currentHoles;
+        
+        const holeToUpdate = { ...currentHoles[activeHoleIndex] };
+        
+        if (logType === 'condition') {
+            holeToUpdate.conditionLog = [];
+        } else if (logType === 'recovery') {
+            holeToUpdate.recoveryLog = [];
+            holeToUpdate.contaminatedMeters = [];
+        }
+
+        const newHoles = [...currentHoles];
+        newHoles[activeHoleIndex] = holeToUpdate;
+        return newHoles;
+    });
+  }, [activeHoleUuid]);
+
 
   const updateSampleInHole = useCallback((sampleUuid: string, updates: Partial<Sample>) => {
     setDrillHoles(currentHoles => {
@@ -686,13 +742,13 @@ function App() {
     if (allSampleRows.length > 0) downloadCsv('drillhole_samples_export.csv', [sampleHeaders.join(','), ...allSampleRows].join('\n'));
 
     // --- CONDITION & RECOVERY EXPORT ---
-    const conditionHeaders = ['Project', 'Hole ID', 'From', 'To', 'Condition', 'Recovery', 'Sampled By', 'Date'];
+    const conditionHeaders = ['Project', 'Hole ID', 'From', 'To', 'Condition', 'Recovery', 'Contamination', 'Sampled By', 'Date'];
     const allConditionRows = holesToExport.flatMap(hole => {
         const project = projects.find(p => p.uuid === hole.projectUuid);
         const sampler = samplers.find(s => s.uuid === hole.samplerUuid);
         return calculateCombinedIntervals(hole).map(i => [
             project?.code || '', hole.holeId, i.from.toFixed(2), i.to.toFixed(2),
-            i.conditionCode, i.recoveryCode, sampler?.name || '', hole.sampledDate
+            i.conditionCode, i.recoveryCode, i.isContaminated ? 'Yes' : 'No', sampler?.name || '', hole.sampledDate
         ].join(','));
     });
     if (allConditionRows.length > 0) downloadCsv('drillhole_condition_recovery_export.csv', [conditionHeaders.join(','), ...allConditionRows].join('\n'));
@@ -722,6 +778,23 @@ function App() {
     }
     setDeleteModalOpen(false);
   };
+  
+   const handleClearSamples = useCallback(() => {
+    if (!activeHole) return;
+
+    const activeHoleIndex = drillHoles.findIndex(h => h.uuid === activeHoleUuid);
+    if (activeHoleIndex === -1) return;
+
+    const tempHoles = [...drillHoles];
+    tempHoles[activeHoleIndex] = {
+      ...tempHoles[activeHoleIndex],
+      samples: [],
+      autoQcApplied: false,
+    };
+    setDrillHoles(tempHoles);
+    setSelectedSampleUuids([]);
+  }, [activeHole, activeHoleUuid, drillHoles]);
+
 
   const handleAssignMaterial = (sampleToAssign: Sample, targetRect: DOMRect) => {
     setSelectionPopover({
@@ -860,14 +933,7 @@ function App() {
               sampleInterval={sampleInterval}
               setSampleInterval={setSampleInterval}
               onGenerate={handleGenerateSamples}
-              onAddDuplicate={() => selectedSamples.length > 0 && handleAddDuplicate(selectedSamples[0])}
-              onToggleMultiElement={handleToggleMultiElement}
-              onOpenStandardModal={() => {}}
-              onOpenBlankModal={() => {}}
               onOpenNotSampledModal={() => setNotSampledModalOpen(true)}
-              onSplit={() => handleSplitSample()}
-              onMerge={handleMergeSamples}
-              onDelete={handleDeleteSamples}
               selectedSamples={selectedSamples}
               isHoleSelected={!!activeHole}
               isHoleInfoComplete={isHoleInfoComplete}
@@ -891,16 +957,21 @@ function App() {
                             holeDepth={activeHole?.holeDepth || 0}
                             conditionLog={activeHole?.conditionLog || []}
                             recoveryLog={activeHole?.recoveryLog || []}
+                            contaminatedMeters={activeHole?.contaminatedMeters || []}
                             selectedSampleUuids={selectedSampleUuids}
                             onToggleSelection={handleToggleSelection}
                             onAddDuplicate={handleAddDuplicate}
                             onInsertStandard={handleInsertStandard}
                             onInsertBlank={handleInsertBlank}
                             onSplit={handleSplitSample}
+                            onMerge={handleMergeSamples}
                             onDelete={handleDeleteSingleSample}
                             onUpdateIntervalLog={handleUpdateIntervalLog}
                             onToggleMultiElement={handleToggleMultiElement}
                             onAssignMaterial={handleAssignMaterial}
+                            onClearSamples={handleClearSamples}
+                            onClearIntervalLog={handleClearIntervalLog}
+                            onToggleContamination={handleToggleContamination}
                         />
                         <SampleTable samples={activeHole?.samples || []} selectedSampleUuids={selectedSampleUuids} onToggleSelection={handleToggleSelection} onSelectAll={handleSelectAll} />
                     </div>
@@ -913,16 +984,21 @@ function App() {
                             holeDepth={activeHole?.holeDepth || 0}
                             conditionLog={activeHole?.conditionLog || []}
                             recoveryLog={activeHole?.recoveryLog || []}
+                            contaminatedMeters={activeHole?.contaminatedMeters || []}
                             selectedSampleUuids={selectedSampleUuids}
                             onToggleSelection={handleToggleSelection}
                             onAddDuplicate={handleAddDuplicate}
                             onInsertStandard={handleInsertStandard}
                             onInsertBlank={handleInsertBlank}
                             onSplit={handleSplitSample}
+                            onMerge={handleMergeSamples}
                             onDelete={handleDeleteSingleSample}
                             onUpdateIntervalLog={handleUpdateIntervalLog}
                             onToggleMultiElement={handleToggleMultiElement}
                             onAssignMaterial={handleAssignMaterial}
+                            onClearSamples={handleClearSamples}
+                            onClearIntervalLog={handleClearIntervalLog}
+                            onToggleContamination={handleToggleContamination}
                         />
                          <CombinedLogTable activeHole={activeHole} projects={projects} samplers={samplers} combinedIntervals={combinedLogForActiveHole} />
                     </div>

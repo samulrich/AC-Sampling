@@ -1,4 +1,5 @@
 import React from 'react';
+import { TrashIcon } from './icons';
 
 const InstructionsPanel: React.FC = () => {
     const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
@@ -25,6 +26,7 @@ const InstructionsPanel: React.FC = () => {
 
             <Section title="Understanding the Interface">
                 <p>The application is designed to fit your screen without a main browser scrollbar. The header and primary controls remain fixed at the top. When content like the sample table or graphical log is too long for the screen, individual scrollbars will appear within those specific panels. This ensures you always have access to key functions.</p>
+                <p className="mt-2">The <strong>right-click context menu</strong> in the graphical log is the primary method for performing actions on samples, such as adding QC, splitting, or merging.</p>
             </Section>
             
             <Section title="Choosing Your Workflow: Automatic vs. Manual QC">
@@ -32,7 +34,7 @@ const InstructionsPanel: React.FC = () => {
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                      <div className="border rounded-lg p-4 bg-slate-50">
                          <h4 className="font-bold text-slate-800">Manual QC Mode (Default)</h4>
-                         <p>This is the simplest and most flexible way to work. The "Apply Auto QC Rules" button is disabled, and the system will <strong>never</strong> automatically add or move QC samples. You have 100% control over QC placement using the "Manual Actions" buttons or the right-click menu.</p>
+                         <p>This is the simplest and most flexible way to work. The "Apply Auto QC Rules" button is disabled, and the system will <strong>never</strong> automatically add or move QC samples. You have 100% control over QC placement using the <strong>right-click context menu</strong> in the graphical log.</p>
                           <p className="mt-2 text-xs font-semibold">Choose this if: You prefer direct control, have non-standard QC patterns, or want the most predictable behavior.</p>
                      </div>
                       <div className="border rounded-lg p-4 bg-slate-50">
@@ -64,7 +66,7 @@ const InstructionsPanel: React.FC = () => {
                     In the <strong>Graphical Log</strong>, newly created Standards and Blanks will be unassigned and highlighted (e.g., pulsing red). Click directly on the sample's badge (the text that says 'SELECT STD' or 'SELECT BLK') to open a popover and assign the correct material from your list.
                 </Step>
                 <Step num={7} title="Log Condition & Recovery">
-                    In the main view, switch to the <strong>Condition & Recovery</strong> tab. Use the graphical interface to log the geological conditions for each meter.
+                    In the main view, switch to the <strong>Condition & Recovery</strong> tab. Use the graphical interface to log the geological conditions for each meter. You can also right-click on any interval in the <strong>Recovery</strong> log to toggle whether it is contaminated.
                 </Step>
                  <Step num={8} title="Review & Export">
                     Switch between the Graphical Log, Sample Table, and Condition & Recovery tabs to review your work. Once satisfied, use the <strong>Export Data</strong> button in the header.
@@ -72,18 +74,23 @@ const InstructionsPanel: React.FC = () => {
             </Section>
 
             <Section title="Manual Operations & Important Notes">
-                 <h4 className="font-bold text-slate-700">Full Manual Control</h4>
-                 <p>Regardless of which mode you are in, you can add QC samples manually at any time. You have two primary methods:</p>
+                 <h4 className="font-bold text-slate-700">The Right-Click Context Menu</h4>
+                 <p>Most manual sample manipulations are performed using the right-click context menu in the <strong>Graphical Log</strong>. Right-clicking on a sample will reveal a list of available actions, which may include:</p>
                  <ul className="list-disc list-inside mt-2">
-                    <li><strong>Manual Actions Panel:</strong> Select a primary sample in the table or log, then use the buttons like "Add Duplicate" or "Insert Standard".</li>
-                    <li><strong>Right-Click Menu:</strong> Right-click on a primary sample within the Graphical Log for a context-sensitive menu of actions.</li>
+                    <li><strong>Add Duplicate:</strong> Creates a duplicate of a primary sample.</li>
+                    <li><strong>Insert Standard / Insert Blank:</strong> Inserts a new Standard or Blank at the start of a primary sample's interval.</li>
+                    <li><strong>Set Assay to ME/Au:</strong> Toggles the assay type for a primary sample and its duplicate.</li>
+                    <li><strong>Split to 1m:</strong> Splits a multi-meter primary sample into 1m intervals.</li>
+                    <li><strong>Merge 1m Samples:</strong> Select multiple, contiguous 1m primary samples and right-click to merge them.</li>
+                    <li><strong>Delete Sample:</strong> Deletes non-primary samples (Duplicates, Standards, Blanks).</li>
                  </ul>
+
                  <div className="my-3 p-3 bg-amber-50 border-l-4 border-amber-400 text-amber-800 text-xs">
                     <strong>Important (When in Auto QC Mode):</strong> Performing a manual QC action (adding/deleting a Standard, Blank, or Duplicate) will disable the "smart" auto-regeneration for that hole. If you later add a 'Not Sampled' interval, the system will not automatically reposition QC. You must click <strong>"Apply Auto QC Rules"</strong> again to reset and regenerate the entire QC sequence based on the latest state.
                 </div>
 
-                 <h4 className="font-bold text-slate-700 mt-4">Splitting & Merging</h4>
-                 <p>You can select one or more 4m primary samples and use the <strong>Split to 1m</strong> button. Conversely, you can select a continuous run of 1m primary samples and use the <strong>Merge 1m Samples</strong> button to combine them.</p>
+                <h4 className="font-bold text-slate-700 mt-4">Clearing Data</h4>
+                <p>To quickly remove data from the active hole, use the trash can (<TrashIcon className="w-4 h-4 inline-block" />) icons located next to the "Graphical Log" title. You can clear all samples from the sample log, or clear all data from the currently viewed Condition or Recovery log.</p>
 
                 <h4 className="font-bold text-slate-700 mt-4">Troubleshooting</h4>
                 <p className="font-semibold">"My QC samples are in the wrong positions after I added a 'Not Sampled' interval."</p>
